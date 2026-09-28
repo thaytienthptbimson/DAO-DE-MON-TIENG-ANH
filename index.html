@@ -237,13 +237,6 @@ def _make_para_spec(paragraph, a=0, b=None, number_span=None):
 
 def _mark_option_correctness(segments):
     if not segments: return segments, False
-    # Quan trọng: đáp án đúng được đánh dấu bằng cách gạch chân, nhưng Word có thể
-    # tách nội dung của một đáp án thành NHIỀU run khác nhau (ví dụ do gõ nhiều lần,
-    # sửa định dạng...). Nếu chỉ kiểm tra run đầu tiên (segments[0]) thì có thể:
-    #   1) Bỏ sót đáp án đúng nếu phần gạch chân nằm ở run sau, dẫn đến bảng đáp án SAI.
-    #   2) Không xoá gạch chân ở các run còn lại khi xuất file, khiến đáp án đúng
-    #      vẫn lộ ra (bị gạch chân) trong đề thi đã xáo trộn phát cho học sinh.
-    # => Kiểm tra và xoá gạch chân trên TẤT CẢ các run thuộc đáp án.
     is_correct = any(run_has_underline(r) for _t, r, _su, _isn in segments)
     if is_correct:
         segments = [(t, r, True, isn) for (t, r, _su, isn) in segments]
@@ -438,10 +431,6 @@ def detect_parts(parsed):
     
     final_parts.sort(key=lambda x: x["q_from"])
 
-    # Đảm bảo MỌI câu hỏi đều thuộc về một "phần" nào đó, kể cả khi không phát
-    # hiện được nhãn/tiêu đề phần nào trong đề gốc, hoặc nhãn chỉ phủ một phần
-    # câu hỏi. Nếu không, các câu nằm ngoài phạm vi đã phát hiện sẽ bị engine
-    # xáo trộn bỏ qua hoàn toàn (không xáo đáp án lẫn thứ tự câu) một cách âm thầm.
     if all_qnums:
         had_parts_before = bool(final_parts)
         covered_all = set()
@@ -590,15 +579,6 @@ def _emit_plain_paragraph(doc, spec, mapper=None):
     return p
 
 def _make_block_text_mapper(block_qnums, number_str_map):
-    """Tạo hàm thay số thứ tự CŨ -> MỚI trong các đoạn lời dẫn/chú thích của một khối câu hỏi.
-    Xử lý 2 trường hợp khác nhau để tránh lỗi khi thứ tự câu trong khối bị xáo trộn:
-      1) Cụm nêu PHẠM VI dạng "câu X đến/tới/- câu Y": KHÔNG thay từng số một, mà thay
-         cả cụm bằng phạm vi số thứ tự MỚI thực tế (nhỏ nhất..lớn nhất) của CẢ KHỐI.
-         (Nếu thay từng số theo kiểu "X -> số mới của đúng câu X" thì khi câu X không
-         còn là câu nhỏ nhất trong khối nữa, phạm vi hiển thị sẽ bị sai, thậm chí ngược.)
-      2) Số nhắc tới MỘT câu cụ thể, đứng riêng lẻ (không thuộc cụm phạm vi ở trên):
-         vẫn thay bằng đúng số thứ tự MỚI của câu đó như trước.
-    """
     block_mapping = {str(q): str(number_str_map[q]) for q in block_qnums}
     if not block_mapping:
         return None
@@ -631,19 +611,10 @@ def _make_block_text_mapper(block_qnums, number_str_map):
         return "".join(out)
 
     return substitute
-# -----------------------------------------------------------
 
 _LEADING_LETTER_RE = re.compile(r'^(\s*)([ABCD])(\.)')
 
 def _relabel_first_char(segments, new_letter):
-    """Đổi chữ cái nhãn (A/B/C/D) ở đầu đáp án thành new_letter.
-    Quan trọng: Word có thể tách chữ cái và dấu chấm thành các run KHÁC NHAU
-    (vd run1="A", run2=". nội dung"). Nếu chỉ kiểm tra run/segment đầu tiên,
-    trường hợp này sẽ không khớp regex và bị bỏ sót, khiến chữ cái nhãn CŨ vẫn
-    còn nguyên trong khi đáp án đã đổi sang vị trí khác (2 đáp án cùng hiện
-    một chữ cái). Ở đây quét gộp text của vài segment đầu để tìm đúng vị trí
-    ký tự chữ cái, rồi chỉ sửa đúng 1 ký tự đó tại segment chứa nó.
-    """
     if not segments: return segments
     combined = ""
     for seg_text, _r, _su, _isn in segments[:4]:
@@ -815,7 +786,7 @@ def generate_shuffled(options_json):
     <div id="trial-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-lg font-bold text-slate-800 mb-2">Đã hết lượt dùng thử</h3>
-            <p class="text-sm text-slate-600 mb-4">Bạn đã sử dụng hết 10 lần dùng thử miễn phí. Vui lòng nhập mật khẩu để tiếp tục sử dụng phần mềm.</p>
+            <p class="text-sm text-slate-600 mb-4">Bạn đã sử dụng hết lượt dùng thử miễn phí. Vui lòng liên hệ số ĐT 0943930787 để lấy mật khẩu thêm 10 lần dùng thử nữa.</p>
             <input type="password" id="trial-password-input" placeholder="Nhập mật khẩu" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
             <p id="trial-password-error" class="text-red-500 text-sm mb-3 hidden">Mật khẩu không đúng. Vui lòng thử lại.</p>
             <div class="flex justify-end gap-2 mt-2">
@@ -949,33 +920,38 @@ def generate_shuffled(options_json):
     }
 
     // --- QUẢN LÝ SỐ LƯỢT DÙNG THỬ ---
-    const TRIAL_LIMIT = 10;
-    const TRIAL_PASSWORD = "tuankiet28011981@";
+    let TRIAL_LIMIT = 10;
+    const TRIAL_PASSWORD = "tienhuong28011981@";
     const TRIAL_COUNT_KEY = "dmd_trial_count";
-    const TRIAL_UNLOCK_KEY = "dmd_unlocked";
+    const LIMIT_KEY = "dmd_limit_count"; // Lưu giới hạn hiện tại
 
     function getTrialCount() {
         return parseInt(localStorage.getItem(TRIAL_COUNT_KEY) || '0', 10) || 0;
     }
-    function isUnlocked() {
-        return localStorage.getItem(TRIAL_UNLOCK_KEY) === 'true';
-    }
-    function markUsageIfNeeded() {
-        if (!isUnlocked()) {
-            localStorage.setItem(TRIAL_COUNT_KEY, String(getTrialCount() + 1));
+    
+    function getLimitCount() {
+        const storedLimit = localStorage.getItem(LIMIT_KEY);
+        if (storedLimit === null) {
+            localStorage.setItem(LIMIT_KEY, TRIAL_LIMIT.toString());
+            return TRIAL_LIMIT;
         }
+        return parseInt(storedLimit, 10);
+    }
+
+    function markUsageIfNeeded() {
+        localStorage.setItem(TRIAL_COUNT_KEY, String(getTrialCount() + 1));
         updateTrialUI();
     }
+
     function updateTrialUI() {
         const el = document.getElementById('trial-status');
         if (!el) return;
-        if (isUnlocked()) {
-            el.textContent = "Đã kích hoạt - không giới hạn số lần sử dụng.";
-        } else {
-            const remaining = Math.max(0, TRIAL_LIMIT - getTrialCount());
-            el.textContent = `Còn ${remaining}/${TRIAL_LIMIT} lượt dùng thử miễn phí.`;
-        }
+        const limit = getLimitCount();
+        const count = getTrialCount();
+        const remaining = Math.max(0, limit - count);
+        el.textContent = `Còn ${remaining}/${limit} lượt dùng thử miễn phí.`;
     }
+
     function showTrialModal() {
         document.getElementById('trial-password-error').classList.add('hidden');
         document.getElementById('trial-password-input').value = '';
@@ -984,33 +960,38 @@ def generate_shuffled(options_json):
         modal.classList.add('flex');
         document.getElementById('trial-password-input').focus();
     }
+
     function hideTrialModal() {
         const modal = document.getElementById('trial-modal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
-    // Trả về true nếu được phép chạy tiếp; nếu hết lượt sẽ hiện hộp thoại
-    // yêu cầu mật khẩu và trả về false (hàm gọi phải dừng lại).
+
     function checkTrialAccess() {
-        if (isUnlocked() || getTrialCount() < TRIAL_LIMIT) return true;
+        if (getTrialCount() < getLimitCount()) return true;
         showTrialModal();
         return false;
     }
+
     document.getElementById('trial-confirm-btn').addEventListener('click', function() {
         const input = document.getElementById('trial-password-input').value;
         if (input === TRIAL_PASSWORD) {
-            localStorage.setItem(TRIAL_UNLOCK_KEY, 'true');
+            let currentLimit = getLimitCount();
+            localStorage.setItem(LIMIT_KEY, (currentLimit + 10).toString());
             hideTrialModal();
             updateTrialUI();
+            alert("Mật khẩu chính xác. Bạn đã được cộng thêm 10 lượt dùng thử.");
             shuffleAndExport(); // tự động tạo đề tiếp sau khi mở khóa thành công
         } else {
             document.getElementById('trial-password-error').classList.remove('hidden');
         }
     });
+
     document.getElementById('trial-cancel-btn').addEventListener('click', hideTrialModal);
     document.getElementById('trial-password-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') document.getElementById('trial-confirm-btn').click();
     });
+
     updateTrialUI();
     // ---------------------------------
 
